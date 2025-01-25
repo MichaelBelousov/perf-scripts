@@ -3,3 +3,6 @@ perf.data
 
 # python
 __pycache__
+
+# local
+*.db
