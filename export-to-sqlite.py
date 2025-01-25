@@ -551,17 +551,13 @@ def symbol_table(*args):
 def branch_type_table(*args):
     db.execute("INSERT INTO branch_types VALUES (?, ?)", args)
 
-# FIXME: naming this sample_table seems to invoke it weirdly with 28 arguments
-def _sample_table(*args):
-    if len(args) == 28:
-        import traceback
-        traceback.print_stack()
-        import code
-        code.interact(local={**globals(), **locals()})
+def sample_table(*args):
     if branches:
         db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (*args[0:15], *args[19:25]))
     else:
-        db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", args)
+        # FIXME: wtf why do we get 28 and what are we missing? I need to read the perf docs to be sure this is
+        # an up to date usage...
+        db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", args[0:25])
 
 if perf_db_export_calls or perf_db_export_callchains:
     def call_path_table(*args):
@@ -595,7 +591,7 @@ def trace_begin():
 	comm_table(0, "unknown", 0, 0, 0)
 	dso_table(0, 0, "unknown", "unknown", "")
 	symbol_table(0, 0, 0, 0, 0, "unknown")
-	_sample_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	sample_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	if perf_db_export_calls or perf_db_export_callchains:
 		call_path_table(0, 0, 0, 0)
 		call_return_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
