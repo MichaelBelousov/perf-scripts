@@ -70,17 +70,13 @@ import datetime
 # renamed 'transaction_' in sqlite because 'transaction' is a reserved word.
 
 pyside_version_1 = True
-if not "pyside-version-1" in sys.argv:
-	try:
-		from PySide2.QtSql import *
-		pyside_version_1 = False
-	except:
-		pass
 
-if pyside_version_1:
-	from PySide.QtSql import *
+# from PySide2.QtSql import *
+import sqlite3
 
-sys.path.append(os.environ['PERF_EXEC_PATH'] + \
+PERF_EXEC_PATH = os.environ.get('PERF_EXEC_PATH', '/lib/perf')
+
+sys.path.append(PERF_EXEC_PATH + \
 	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
 
 # These perf imports are not used at present
@@ -131,7 +127,7 @@ for i in range(3,len(sys.argv)):
 		usage()
 
 def do_query(q, s):
-	if (q.exec_(s)):
+	if (q.execute(s)):
 		return
 	raise Exception("Query failed: " + q.lastError().text())
 
@@ -153,11 +149,10 @@ except:
 if db_exists:
 	raise Exception(dbname + " already exists")
 
-db = QSqlDatabase.addDatabase('QSQLITE')
-db.setDatabaseName(dbname)
-db.open()
+db = sqlite3.connect(dbname)
 
-query = QSqlQuery(db)
+# TODO: close
+query = db.cursor()
 
 do_query(query, 'PRAGMA journal_mode = OFF')
 do_query(query, 'BEGIN TRANSACTION')
@@ -569,47 +564,50 @@ do_query(query, 'CREATE VIEW context_switches_view AS '
 
 do_query(query, 'END TRANSACTION')
 
-evsel_query = QSqlQuery(db)
-evsel_query.prepare("INSERT INTO selected_events VALUES (?, ?)")
-machine_query = QSqlQuery(db)
-machine_query.prepare("INSERT INTO machines VALUES (?, ?, ?)")
-thread_query = QSqlQuery(db)
-thread_query.prepare("INSERT INTO threads VALUES (?, ?, ?, ?, ?)")
-comm_query = QSqlQuery(db)
-comm_query.prepare("INSERT INTO comms VALUES (?, ?, ?, ?, ?)")
-comm_thread_query = QSqlQuery(db)
-comm_thread_query.prepare("INSERT INTO comm_threads VALUES (?, ?, ?)")
-dso_query = QSqlQuery(db)
-dso_query.prepare("INSERT INTO dsos VALUES (?, ?, ?, ?, ?)")
-symbol_query = QSqlQuery(db)
-symbol_query.prepare("INSERT INTO symbols VALUES (?, ?, ?, ?, ?, ?)")
-branch_type_query = QSqlQuery(db)
-branch_type_query.prepare("INSERT INTO branch_types VALUES (?, ?)")
-sample_query = QSqlQuery(db)
-if branches:
-	sample_query.prepare("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-else:
-	sample_query.prepare("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+def evsel_table(*args):
+    db.execute("INSERT INTO selected_events VALUES (?, ?)", args)
+def machine_table(*args):
+    db.execute("INSERT INTO machines VALUES (?, ?, ?)", args)
+def thread_table(*args):
+    db.execute("INSERT INTO threads VALUES (?, ?, ?, ?, ?)", args)
+def comm_table(*args):
+    db.execute("INSERT INTO comms VALUES (?, ?, ?, ?, ?)", args)
+def comm_thread_table(*args):
+    db.execute("INSERT INTO comm_threads VALUES (?, ?, ?)", args)
+def dso_table(*args):
+    db.execute("INSERT INTO dsos VALUES (?, ?, ?, ?, ?)", args)
+def symbol_table(*args):
+    db.execute("INSERT INTO symbols VALUES (?, ?, ?, ?, ?, ?)", args)
+def branch_type_table(*args):
+    db.execute("INSERT INTO branch_types VALUES (?, ?)", args)
+def sample_table(*args):
+    db.execute("INSERT INTO branch_types VALUES (?, ?)", args)
+    if branches:
+        db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", args)
+    else:
+        db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", args)
+
 if perf_db_export_calls or perf_db_export_callchains:
-	call_path_query = QSqlQuery(db)
-	call_path_query.prepare("INSERT INTO call_paths VALUES (?, ?, ?, ?)")
+    def call_path_table(*args):
+        db.execute("INSERT INTO call_paths VALUES (?, ?, ?, ?)", args)
 if perf_db_export_calls:
-	call_query = QSqlQuery(db)
-	call_query.prepare("INSERT INTO calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-ptwrite_query = QSqlQuery(db)
-ptwrite_query.prepare("INSERT INTO ptwrite VALUES (?, ?, ?)")
-cbr_query = QSqlQuery(db)
-cbr_query.prepare("INSERT INTO cbr VALUES (?, ?, ?, ?)")
-mwait_query = QSqlQuery(db)
-mwait_query.prepare("INSERT INTO mwait VALUES (?, ?, ?)")
-pwre_query = QSqlQuery(db)
-pwre_query.prepare("INSERT INTO pwre VALUES (?, ?, ?, ?)")
-exstop_query = QSqlQuery(db)
-exstop_query.prepare("INSERT INTO exstop VALUES (?, ?)")
-pwrx_query = QSqlQuery(db)
-pwrx_query.prepare("INSERT INTO pwrx VALUES (?, ?, ?, ?)")
-context_switch_query = QSqlQuery(db)
-context_switch_query.prepare("INSERT INTO context_switches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    def call_return_table(*args):
+        db.execute("INSERT INTO calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", args)
+    
+def ptwrite_table(*args):
+    db.execute("INSERT INTO ptwrite VALUES (?, ?, ?)", args)
+def cbr_table(*args):
+    db.execute("INSERT INTO cbr VALUES (?, ?, ?, ?)", args)
+def mwait_table(*args):
+    db.execute("INSERT INTO mwait VALUES (?, ?, ?)", args)
+def pwre_table(*args):
+    db.execute("INSERT INTO pwre VALUES (?, ?, ?, ?)", args)
+def exstop_table(*args):
+    db.execute("INSERT INTO exstop VALUES (?, ?)", args)
+def pwrx_table(*args):
+    db.execute("INSERT INTO pwrx VALUES (?, ?, ?, ?)", args)
+def context_switch_table(*args):
+    db.execute("INSERT INTO context_switches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", args)
 
 def trace_begin():
 	printdate("Writing records...")
@@ -629,8 +627,7 @@ def trace_begin():
 unhandled_count = 0
 
 def is_table_empty(table_name):
-	do_query(query, 'SELECT * FROM ' + table_name + ' LIMIT 1');
-	if query.next():
+	for _ in query.execute('SELECT * FROM ' + table_name + ' LIMIT 1'):
 		return False
 	return True
 
@@ -678,30 +675,7 @@ def bind_exec(q, n, x):
 		q.addBindValue(str(xx))
 	do_query_(q)
 
-def evsel_table(*x):
-	bind_exec(evsel_query, 2, x)
-
-def machine_table(*x):
-	bind_exec(machine_query, 3, x)
-
-def thread_table(*x):
-	bind_exec(thread_query, 5, x)
-
-def comm_table(*x):
-	bind_exec(comm_query, 5, x)
-
-def comm_thread_table(*x):
-	bind_exec(comm_thread_query, 3, x)
-
-def dso_table(*x):
-	bind_exec(dso_query, 5, x)
-
-def symbol_table(*x):
-	bind_exec(symbol_query, 6, x)
-
-def branch_type_table(*x):
-	bind_exec(branch_type_query, 2, x)
-
+'''
 def sample_table(*x):
 	if branches:
 		for xx in x[0:15]:
@@ -711,43 +685,28 @@ def sample_table(*x):
 		do_query_(sample_query)
 	else:
 		bind_exec(sample_query, 25, x)
-
-def call_path_table(*x):
-	bind_exec(call_path_query, 4, x)
-
-def call_return_table(*x):
-	bind_exec(call_query, 14, x)
+'''
 
 def ptwrite(id, raw_buf):
 	data = struct.unpack_from("<IQ", raw_buf)
 	flags = data[0]
 	payload = data[1]
 	exact_ip = flags & 1
-	ptwrite_query.addBindValue(str(id))
-	ptwrite_query.addBindValue(str(payload))
-	ptwrite_query.addBindValue(str(exact_ip))
-	do_query_(ptwrite_query)
+	ptwrite_table(str(id), str(payload), str(exact_ip))
 
 def cbr(id, raw_buf):
 	data = struct.unpack_from("<BBBBII", raw_buf)
 	cbr = data[0]
 	MHz = (data[4] + 500) / 1000
 	percent = ((cbr * 1000 / data[2]) + 5) / 10
-	cbr_query.addBindValue(str(id))
-	cbr_query.addBindValue(str(cbr))
-	cbr_query.addBindValue(str(MHz))
-	cbr_query.addBindValue(str(percent))
-	do_query_(cbr_query)
+	cbr_table(str(id), str(cbr), str(MHz), str(percent))
 
 def mwait(id, raw_buf):
 	data = struct.unpack_from("<IQ", raw_buf)
 	payload = data[1]
 	hints = payload & 0xff
 	extensions = (payload >> 32) & 0x3
-	mwait_query.addBindValue(str(id))
-	mwait_query.addBindValue(str(hints))
-	mwait_query.addBindValue(str(extensions))
-	do_query_(mwait_query)
+	mwait_table(str(id), str(hints), str(extensions))
 
 def pwre(id, raw_buf):
 	data = struct.unpack_from("<IQ", raw_buf)
@@ -755,19 +714,13 @@ def pwre(id, raw_buf):
 	hw = (payload >> 7) & 1
 	cstate = (payload >> 12) & 0xf
 	subcstate = (payload >> 8) & 0xf
-	pwre_query.addBindValue(str(id))
-	pwre_query.addBindValue(str(cstate))
-	pwre_query.addBindValue(str(subcstate))
-	pwre_query.addBindValue(str(hw))
-	do_query_(pwre_query)
+	pwre_table(str(id),str(cstate), str(subcstate), str(hw))
 
 def exstop(id, raw_buf):
 	data = struct.unpack_from("<I", raw_buf)
 	flags = data[0]
 	exact_ip = flags & 1
-	exstop_query.addBindValue(str(id))
-	exstop_query.addBindValue(str(exact_ip))
-	do_query_(exstop_query)
+	exstop_table(str(id), str(exact_ip))
 
 def pwrx(id, raw_buf):
 	data = struct.unpack_from("<IQ", raw_buf)
@@ -775,11 +728,7 @@ def pwrx(id, raw_buf):
 	deepest_cstate = payload & 0xf
 	last_cstate = (payload >> 4) & 0xf
 	wake_reason = (payload >> 8) & 0xf
-	pwrx_query.addBindValue(str(id))
-	pwrx_query.addBindValue(str(deepest_cstate))
-	pwrx_query.addBindValue(str(last_cstate))
-	pwrx_query.addBindValue(str(wake_reason))
-	do_query_(pwrx_query)
+	pwrx_table(str(id), str(deepest_cstate), str(last_cstate), str(wake_reason))
 
 def synth_data(id, config, raw_buf, *x):
 	if config == 0:
@@ -794,6 +743,3 @@ def synth_data(id, config, raw_buf, *x):
 		pwrx(id, raw_buf)
 	elif config == 5:
 		cbr(id, raw_buf)
-
-def context_switch_table(*x):
-	bind_exec(context_switch_query, 9, x)
