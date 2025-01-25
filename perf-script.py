@@ -28,25 +28,46 @@ remaps = {
 def populateRemapsFromZigPkgCache():
     import re
     zon_name_pat = re.compile(
-        r'\.name\s*=\s*"(?P<name>[^"]*)"\s*,\s*\.version\s*=\s*"(?P<ver>[^"]*)"',
+        r'\.name\s*=\s*"(?P<name>[^"]*)"',
         flags=re.M
     )
+    zon_vers_pat = re.compile(
+        r'\.version\s*=\s*"(?P<ver>[^"]*)"',
+        flags=re.M
+    )
+    readme_name_pat = re.compile(r'^# \s*(.+)\s*($|<!--)', flags=re.M)
 
     zig_pkgs_root = os.path.join(os.environ['HOME'] + '/.cache/zig/p')
     for pkg_hash in os.listdir(zig_pkgs_root):
         # NOTE: I assume C dependencies might not have a build.zig.zon
         pkg_path = os.path.join(zig_pkgs_root, pkg_hash)
+        name = None
+        version = pkg_hash[:16] # FIXME: make accurate
+
         zon_path = os.path.join(pkg_path, 'build.zig.zon')
-        try:
-            with open(zon_path, 'r') as zon:
-                parsed = zon_name_pat.search(zon.read())
-                # TODO: include pkg_hash
-                remaps[pkg_path] = f"{parsed['name']}@{parsed['ver']}"
-        except Exception as e:
-            sys.stderr.write(f'Error reading "{zon_path}": {e}\n')
+        readme_path = os.path.join(pkg_path, 'README.md')
+        if os.access(zon_path, os.F_OK):
+            try:
+                with open(zon_path, 'r') as zon:
+                    content = zon.read()
+                    name = zon_name_pat.search(content)['name']
+                    version = zon_vers_pat.search(content)['ver'] + f'+{pkg_hash[:16]}'
+            except Exception as e:
+                sys.stderr.write(f'Error reading zon "{zon_path}": {e}\n')
+        elif os.access(readme_path, os.F_OK):
+            try:
+                # TODO: try non-md
+                with open(readme_path, 'r') as readme:
+                    parsed = readme_name_pat.search(readme.read())
+                    name = parsed[1]
+            except Exception as e:
+                sys.stderr.write(f'Error reading readme "{readme_path}": {e}\n')
+
+
+        if name is not None:
+            remaps[pkg_path] = f"{name}@{version}"
 
 populateRemapsFromZigPkgCache()
-print(remaps)
 
 dirs = {}
 
