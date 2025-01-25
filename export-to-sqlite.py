@@ -53,7 +53,7 @@ sys.path.append(PERF_EXEC_PATH + \
 	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
 
 # These perf imports are not used at present
-#from perf_trace_context import *
+from perf_trace_context import perf_sample_srcline, perf_sample_srccode
 #from Core import *
 
 perf_db_export_mode = True
@@ -167,56 +167,40 @@ do_query(query, 'CREATE TABLE branch_types ('
 		'id		integer		NOT NULL	PRIMARY KEY,'
 		'name		varchar(80))')
 
-if branches:
-	do_query(query, 'CREATE TABLE samples ('
-		'id		integer		NOT NULL	PRIMARY KEY,'
-		'evsel_id	bigint,'
-		'machine_id	bigint,'
-		'thread_id	bigint,'
-		'comm_id	bigint,'
-		'dso_id		bigint,'
-		'symbol_id	bigint,'
-		'sym_offset	bigint,'
-		'ip		bigint,'
-		'time		bigint,'
-		'cpu		integer,'
-		'to_dso_id	bigint,'
-		'to_symbol_id	bigint,'
-		'to_sym_offset	bigint,'
-		'to_ip		bigint,'
-		'branch_type	integer,'
-		'in_tx		boolean,'
-		'call_path_id	bigint,'
-		'insn_count	bigint,'
-		'cyc_count	bigint,'
-		'flags		integer)')
-else:
-	do_query(query, 'CREATE TABLE samples ('
-		'id		integer		NOT NULL	PRIMARY KEY,'
-		'evsel_id	bigint,'
-		'machine_id	bigint,'
-		'thread_id	bigint,'
-		'comm_id	bigint,'
-		'dso_id		bigint,'
-		'symbol_id	bigint,'
-		'sym_offset	bigint,'
-		'ip		bigint,'
-		'time		bigint,'
-		'cpu		integer,'
-		'to_dso_id	bigint,'
-		'to_symbol_id	bigint,'
-		'to_sym_offset	bigint,'
-		'to_ip		bigint,'
-		'period		bigint,'
-		'weight		bigint,'
-		'transaction_	bigint,'
-		'data_src	bigint,'
-		'branch_type	integer,'
-		'in_tx		boolean,'
-		'call_path_id	bigint,'
-		'insn_count	bigint,'
-		'cyc_count	bigint,'
-		'flags		integer)')
+do_query(query, f'''
+  CREATE TABLE samples (
+    id		integer		NOT NULL	PRIMARY KEY,
+    evsel_id	bigint,
+    machine_id	bigint,
+    thread_id	bigint,
+    comm_id	bigint,
+    dso_id		bigint,
+    symbol_id	bigint,
+    sym_offset	bigint,
+    ip		bigint,
+    time		bigint,
+    cpu		integer,
+    to_dso_id	bigint,
+    to_symbol_id	bigint,
+    to_sym_offset	bigint,
+    to_ip		bigint,
+
+    {'''
+    period		bigint,
+    weight		bigint,
+    transaction_	bigint,
+    data_src	bigint,
+    ''' if not branches else ''}
+
+    branch_type	integer,
+    in_tx		boolean,
+    call_path_id	bigint,
+    insn_count	bigint,
+    cyc_count	bigint,
+    flags		integer
+  )
+  '''
+)
 
 if perf_db_export_calls or perf_db_export_callchains:
 	do_query(query, 'CREATE TABLE call_paths ('
