@@ -20,10 +20,38 @@ sys.path.append(os.environ['PERF_EXEC_PATH'] + \
 import perf_trace_context as perf
 from Core import *
 
+# allows aggregating and renaming
+remaps = {
+    '/usr/lib/zig/std': 'zig-std',
+}
+
+def populateRemapsFromZigPkgCache():
+    import re
+    zon_name_pat = re.compile(
+        r'\.name\s*=\s*"(?P<name>[^"]*)"\s*,\s*\.version\s*=\s*"(?P<ver>[^"]*)"',
+        flags=re.M
+    )
+
+    zig_pkgs_root = os.path.join(os.environ['HOME'] + '/.cache/zig/p')
+    for pkg_hash in os.listdir(zig_pkgs_root):
+        # NOTE: I assume C dependencies might not have a build.zig.zon
+        pkg_path = os.path.join(zig_pkgs_root, pkg_hash)
+        zon_path = os.path.join(pkg_path, 'build.zig.zon')
+        try:
+            with open(zon_path, 'r') as zon:
+                parsed = zon_name_pat.search(zon.read())
+                # TODO: include pkg_hash
+                remaps[pkg_path] = f"{parsed['name']}@{parsed['ver']}"
+        except Exception as e:
+            sys.stderr.write(f'Error reading "{zon_path}": {e}\n')
+
+populateRemapsFromZigPkgCache()
+print(remaps)
+
 dirs = {}
 
 def trace_begin():
-    print("in trace_begin")
+    pass
 
 def trace_end():
     print(f"Summary:")
@@ -33,7 +61,13 @@ def trace_end():
 def process_event(event):
     file, _line = perf.perf_sample_srcline(perf.perf_script_context)
     if file is not None:
-        dirs[os.path.dirname(file)] = dirs.get(os.path.dirname(file), 0) + 1
+        # TODO: this could be more efficient via prefix searches
+        key = os.path.dirname(file)
+        for prefix, target in remaps.items():
+            if file.startswith(prefix):
+                key = target
+                break
+        dirs[key] = dirs.get(key, 0) + 1
 
 def trace_unhandled(event_name, context, event_fields_dict, perf_sample_dict):
     print("unhandled tracepoint")
