@@ -17,30 +17,6 @@ import sys
 import struct
 import datetime
 
-# To use this script you will need to have installed package python-pyside which
-# provides LGPL-licensed Python bindings for Qt.  You will also need the package
-# libqt4-sql-sqlite for Qt sqlite3 support.
-#
-# Examples of installing pyside:
-#
-# ubuntu:
-#
-#	$ sudo apt-get install python-pyside.qtsql libqt4-sql-psql
-#
-#	Alternately, to use Python3 and/or pyside 2, one of the following:
-#
-#		$ sudo apt-get install python3-pyside.qtsql libqt4-sql-psql
-#		$ sudo apt-get install python-pyside2.qtsql libqt5sql5-psql
-#		$ sudo apt-get install python3-pyside2.qtsql libqt5sql5-psql
-# fedora:
-#
-#	$ sudo yum install python-pyside
-#
-#	Alternately, to use Python3 and/or pyside 2, one of the following:
-#		$ sudo yum install python3-pyside
-#		$ pip install --user PySide2
-#		$ pip3 install --user PySide2
-#
 # An example of using this script with Intel PT:
 #
 #	$ perf record -e intel_pt//u ls
@@ -69,9 +45,6 @@ import datetime
 # difference is  the 'transaction' column of the 'samples' table which is
 # renamed 'transaction_' in sqlite because 'transaction' is a reserved word.
 
-pyside_version_1 = True
-
-# from PySide2.QtSql import *
 import sqlite3
 
 PERF_EXEC_PATH = os.environ.get('PERF_EXEC_PATH', '/lib/perf')
@@ -94,11 +67,10 @@ def printdate(*args, **kw_args):
         print(datetime.datetime.today(), *args, sep=' ', **kw_args)
 
 def usage():
-	printerr("Usage is: export-to-sqlite.py <database name> [<columns>] [<calls>] [<callchains>] [<pyside-version-1>]");
+	printerr("Usage is: export-to-sqlite.py <database name> [<columns>] [<calls>] [<callchains>]");
 	printerr("where:  columns            'all' or 'branches'");
 	printerr("        calls              'calls' => create calls and call_paths table");
 	printerr("        callchains         'callchains' => create call_paths table");
-	printerr("        pyside-version-1   'pyside-version-1' => use pyside version 1");
 	raise Exception("Too few or bad arguments")
 
 if (len(sys.argv) < 2):
@@ -121,8 +93,6 @@ for i in range(3,len(sys.argv)):
 		perf_db_export_calls = True
 	elif (sys.argv[i] == "callchains"):
 		perf_db_export_callchains = True
-	elif (sys.argv[i] == "pyside-version-1"):
-		pass
 	else:
 		usage()
 
@@ -580,7 +550,14 @@ def symbol_table(*args):
     db.execute("INSERT INTO symbols VALUES (?, ?, ?, ?, ?, ?)", args)
 def branch_type_table(*args):
     db.execute("INSERT INTO branch_types VALUES (?, ?)", args)
-def sample_table(*args):
+
+# FIXME: naming this sample_table seems to invoke it weirdly with 28 arguments
+def _sample_table(*args):
+    if len(args) == 28:
+        import traceback
+        traceback.print_stack()
+        import code
+        code.interact(local={**globals(), **locals()})
     if branches:
         db.execute("INSERT INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (*args[0:15], *args[19:25]))
     else:
@@ -618,7 +595,7 @@ def trace_begin():
 	comm_table(0, "unknown", 0, 0, 0)
 	dso_table(0, 0, "unknown", "unknown", "")
 	symbol_table(0, 0, 0, 0, 0, "unknown")
-	sample_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	_sample_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	if perf_db_export_calls or perf_db_export_callchains:
 		call_path_table(0, 0, 0, 0)
 		call_return_table(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -673,18 +650,6 @@ def bind_exec(q, n, x):
 	for xx in x[0:n]:
 		q.addBindValue(str(xx))
 	do_query_(q)
-
-'''
-def sample_table(*x):
-	if branches:
-		for xx in x[0:15]:
-			sample_query.addBindValue(str(xx))
-		for xx in x[19:25]:
-			sample_query.addBindValue(str(xx))
-		do_query_(sample_query)
-	else:
-		bind_exec(sample_query, 25, x)
-'''
 
 def ptwrite(id, raw_buf):
 	data = struct.unpack_from("<IQ", raw_buf)
